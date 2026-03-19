@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>HR Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        /* Chat Icon */
+        #chatIcon {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #0d6efd;
+            color: white;
+            font-size: 22px;
+            padding: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        /* Chat Container */
+        #chatContainer {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 320px;
+            display: none;
+            z-index: 1000;
+        }
+
+        #chatBox div {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="d-flex">
+
+    <!-- Sidebar -->
+    <div class="sidebar bg-dark text-white p-3">
+        <h4>HR Panel</h4>
+        <ul class="nav flex-column">
+            <li class="nav-item"><a href="/" class="nav-link text-white">Dashboard</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid p-4">
+
+        <h2>HR Hiring Dashboard</h2>
+
+        <!-- Upload Section -->
+        <div class="card p-3 mt-3">
+            <h5>Upload Resumes</h5>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <input type="file" name="files" multiple class="form-control"/>
+                <button class="btn btn-primary mt-2">Upload</button>
+            </form>
+        </div>
+
+        <!-- Job Description -->
+        <div class="card p-3 mt-3">
+            <h5>Job Description</h5>
+            <form action="/filter" method="post">
+                <textarea name="jd" class="form-control" rows="5"
+                          placeholder="Enter job description..."></textarea>
+                <button class="btn btn-success mt-2">Find Candidates</button>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<!-- 💬 Floating Chat Icon -->
+<div id="chatIcon" onclick="toggleChat()">💬</div>
+
+<!-- 💬 Chat Popup -->
+<div id="chatContainer" class="card shadow">
+    <div class="card-header bg-primary text-white d-flex justify-content-between">
+        <span>AI Assistant</span>
+        <button class="btn btn-sm btn-light" onclick="toggleChat()">X</button>
+    </div>
+
+    <div id="chatBox" class="p-3"
+         style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+    </div>
+
+    <div class="input-group p-2">
+        <input type="text" id="userInput" class="form-control"
+               placeholder="Ask something...">
+        <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    function toggleChat() {
+        const chat = document.getElementById("chatContainer");
+        chat.style.display = (chat.style.display === "none" || chat.style.display === "")
+            ? "block" : "none";
+    }
+
+    async function sendMessage() {
+        const inputField = document.getElementById("userInput");
+        const chatBox = document.getElementById("chatBox");
+
+        const message = inputField.value.trim();
+        if (!message) return;
+
+        chatBox.innerHTML += `<div><b>You:</b> ${message}</div>`;
+        inputField.value = "";
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch(`/chat?q=${encodeURIComponent(message)}`);
+            const data = await response.text();
+
+            chatBox.innerHTML += `<div class="text-success"><b>AI:</b> ${data}</div>`;
+        } catch (error) {
+            console.error(error);
+            chatBox.innerHTML += `<div class="text-danger">Error connecting to AI</div>`;
+        }
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Enter key support
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("userInput").addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
