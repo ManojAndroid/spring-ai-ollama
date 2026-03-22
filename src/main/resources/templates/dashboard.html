@@ -98,6 +98,26 @@
 </div>
 
 <script>
+
+    // ✅ Redirect to login if not authenticated
+    document.addEventListener("DOMContentLoaded", function () {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            window.location.href = "/login";
+        }
+
+        document.getElementById("userInput").addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    });
+
+    function logout() {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+    }
+
     function toggleChat() {
         const chat = document.getElementById("chatContainer");
         chat.style.display = (chat.style.display === "none" || chat.style.display === "")
@@ -117,7 +137,19 @@
         chatBox.scrollTop = chatBox.scrollHeight;
 
         try {
-            const response = await fetch(`/chat?q=${encodeURIComponent(message)}`);
+            const response = await fetch(`/api/chat`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + localStorage.getItem("token")
+                },
+                body: JSON.stringify({
+                    message: message
+                })
+            });
+
+            if (!response.ok) throw new Error();
+
             const data = await response.text();
 
             chatBox.innerHTML += `<div class="text-success"><b>AI:</b> ${data}</div>`;
@@ -129,14 +161,6 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Enter key support
-    document.addEventListener("DOMContentLoaded", function () {
-        document.getElementById("userInput").addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                sendMessage();
-            }
-        });
-    });
 </script>
 
 </body>

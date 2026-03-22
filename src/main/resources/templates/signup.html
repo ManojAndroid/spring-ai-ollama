@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Signup</title>
+</head>
+<body>
+
+<h2>Signup</h2>
+
+<form id="signupForm">
+    <input type="text" id="username" placeholder="Username" required/>
+    <input type="password" id="password" placeholder="Password" required/>
+    <button type="submit">Signup</button>
+</form>
+
+<p id="message" style="color:green;"></p>
+<p id="error" style="color:red;"></p>
+
+<p>Already have an account? <a href="/login">Login</a></p>
+
+<script>
+    document.getElementById("signupForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        try {
+            const response = await fetch("/auth/signup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!response.ok) throw new Error();
+
+            document.getElementById("message").innerText = "Signup successful! Redirecting to login...";
+
+            // ✅ Redirect after 1.5 sec
+            setTimeout(() => {
+                window.location.href = "/login";
+            }, 1500);
+
+        } catch (err) {
+            document.getElementById("error").innerText = "Signup failed";
+        }
+    });
+</script>
+
+</body>
+</html>

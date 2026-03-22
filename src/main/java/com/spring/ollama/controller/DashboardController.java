@@ -22,10 +22,10 @@ public class DashboardController {
         this.service = service;
     }
 
-    @GetMapping("/")
+    /*@GetMapping("/")
     public String dashboard() {
         return "dashboard";
-    }
+    }*/
 
     @PostMapping("/upload")
     public String upload(@RequestParam("files") List<MultipartFile> files) throws Exception {
