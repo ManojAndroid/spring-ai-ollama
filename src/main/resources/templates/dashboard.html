@@ -3,10 +3,8 @@
 <head>
     <title>HR Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
 
     <style>
-        /* Chat Icon */
         #chatIcon {
             position: fixed;
             bottom: 20px;
@@ -17,18 +15,14 @@
             padding: 15px;
             border-radius: 50%;
             cursor: pointer;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
-            z-index: 1000;
         }
 
-        /* Chat Container */
         #chatContainer {
             position: fixed;
             bottom: 80px;
             right: 20px;
             width: 320px;
             display: none;
-            z-index: 1000;
         }
 
         #chatBox div {
@@ -41,126 +35,242 @@
 
 <div class="d-flex">
 
-    <!-- Sidebar -->
     <div class="sidebar bg-dark text-white p-3">
         <h4>HR Panel</h4>
-        <ul class="nav flex-column">
-            <li class="nav-item"><a href="/" class="nav-link text-white">Dashboard</a></li>
-        </ul>
     </div>
 
-    <!-- Main Content -->
     <div class="container-fluid p-4">
 
         <h2>HR Hiring Dashboard</h2>
 
-        <!-- Upload Section -->
+        <!-- Upload -->
         <div class="card p-3 mt-3">
-            <h5>Upload Resumes</h5>
-            <form action="/upload" method="post" enctype="multipart/form-data">
-                <input type="file" name="files" multiple class="form-control"/>
-                <button class="btn btn-primary mt-2">Upload</button>
-            </form>
+            <input type="file" id="files" multiple class="form-control"/>
+            <button class="btn btn-primary mt-2" onclick="uploadFiles()">Upload</button>
         </div>
 
-        <!-- Job Description -->
+        <!-- Filter -->
         <div class="card p-3 mt-3">
             <h5>Job Description</h5>
-            <form action="/filter" method="post">
-                <textarea name="jd" class="form-control" rows="5"
-                          placeholder="Enter job description..."></textarea>
-                <button class="btn btn-success mt-2">Find Candidates</button>
-            </form>
+            <textarea id="jd" class="form-control" rows="5"></textarea>
+            <button class="btn btn-success mt-2" onclick="filterCandidates()">Find Candidates</button>
+        </div>
+
+        <!-- ✅ Results Table -->
+        <div class="card p-3 mt-3">
+            <h5>Top Candidates</h5>
+
+            <table class="table table-bordered mt-2">
+                <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>File Name</th>
+                    <th>Score</th>
+                </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
         </div>
 
     </div>
 </div>
 
-<!-- 💬 Floating Chat Icon -->
 <div id="chatIcon" onclick="toggleChat()">💬</div>
 
-<!-- 💬 Chat Popup -->
 <div id="chatContainer" class="card shadow">
     <div class="card-header bg-primary text-white d-flex justify-content-between">
         <span>AI Assistant</span>
         <button class="btn btn-sm btn-light" onclick="toggleChat()">X</button>
     </div>
 
-    <div id="chatBox" class="p-3"
-         style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
-    </div>
+    <div id="chatBox" class="p-3" style="height: 300px; overflow-y: auto;"></div>
 
     <div class="input-group p-2">
-        <input type="text" id="userInput" class="form-control"
-               placeholder="Ask something...">
+        <input type="text" id="userInput" class="form-control">
         <button class="btn btn-primary" onclick="sendMessage()">Send</button>
     </div>
 </div>
 
 <script>
-
-    // ✅ Redirect to login if not authenticated
     document.addEventListener("DOMContentLoaded", function () {
         const token = localStorage.getItem("token");
-        if (!token) {
-            window.location.href = "/login";
-        }
+        if (!token) window.location.href = "/login";
 
         document.getElementById("userInput").addEventListener("keypress", function (e) {
-            if (e.key === "Enter") {
-                sendMessage();
-            }
+            if (e.key === "Enter") sendMessage();
         });
     });
 
-    function logout() {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
-    }
-
     function toggleChat() {
         const chat = document.getElementById("chatContainer");
-        chat.style.display = (chat.style.display === "none" || chat.style.display === "")
-            ? "block" : "none";
+        chat.style.display = (chat.style.display === "none" || chat.style.display === "") ? "block" : "none";
     }
 
     async function sendMessage() {
-        const inputField = document.getElementById("userInput");
+        const input = document.getElementById("userInput");
         const chatBox = document.getElementById("chatBox");
 
-        const message = inputField.value.trim();
+        const message = input.value.trim();
         if (!message) return;
 
         chatBox.innerHTML += `<div><b>You:</b> ${message}</div>`;
-        inputField.value = "";
-
-        chatBox.scrollTop = chatBox.scrollHeight;
+        input.value = "";
 
         try {
-            const response = await fetch(`/api/chat`, {
+            const res = await fetch("/api/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": "Bearer " + localStorage.getItem("token")
                 },
-                body: JSON.stringify({
-                    message: message
-                })
+                body: JSON.stringify({ message })
             });
 
-            if (!response.ok) throw new Error();
-
-            const data = await response.text();
-
+            const data = await res.text();
             chatBox.innerHTML += `<div class="text-success"><b>AI:</b> ${data}</div>`;
-        } catch (error) {
-            console.error(error);
-            chatBox.innerHTML += `<div class="text-danger">Error connecting to AI</div>`;
+        } catch {
+            chatBox.innerHTML += `<div class="text-danger">Error</div>`;
         }
-
-        chatBox.scrollTop = chatBox.scrollHeight;
     }
 
+    /* ✅ upload */
+    async function uploadFiles() {
+        const files = document.getElementById("files").files;
+
+        if (files.length === 0) {
+            alert("Select files first");
+            return;
+        }
+
+        const formData = new FormData();
+        for (let f of files) {
+            formData.append("files", f);
+        }
+
+        try {
+            const res = await fetch("/upload", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + localStorage.getItem("token")
+                },
+                body: formData
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+            }
+
+            alert("Upload success");
+        } catch {
+            alert("Upload failed");
+        }
+    }
+
+    /* ✅ filter + render table */
+    async function filterCandidates() {
+    const jd = document.getElementById("jd").value;
+
+    if (!jd.trim()) {
+        alert("Enter job description");
+        return;
+    }
+
+    const tbody = document.getElementById("resultsBody");
+
+    // ✅ Loader row
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="3" class="text-center">
+                🔄 Processing... please wait
+            </td>
+        </tr>
+    `;
+
+    try {
+        const res = await fetch("/filter", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + localStorage.getItem("token")
+            },
+            body: JSON.stringify({ jd })
+        });
+
+        // ✅ Handle auth issue
+        if (res.status === 401) {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+            return;
+        }
+
+        // ✅ Handle non-JSON (debug safety)
+        const text = await res.text();
+        let data;
+
+        try {
+            data = JSON.parse(text);
+        } catch (err) {
+            console.error("Invalid JSON response:", text);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-danger text-center">
+                        ❌ Server returned invalid response
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // ✅ Validate response structure
+        if (!data || !data.candidates || data.candidates.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center">
+                        No candidates found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // ✅ Clear table
+        tbody.innerHTML = "";
+
+        let index = 1;
+
+        data.candidates.forEach(c => {
+
+            // ✅ Handle NaN or invalid score
+            let score = isNaN(c.score) ? 0 : c.score;
+
+            let color = score > 0.8 ? "table-success" :
+                        score > 0.6 ? "table-warning" : "table-danger";
+
+            const row = `
+                <tr class="${color}">
+                    <td>${index++}</td>
+                    <td>${c.fileName || "N/A"}</td>
+                    <td>${(score * 100).toFixed(2)}%</td>
+                </tr>
+            `;
+
+            tbody.innerHTML += row;
+        });
+
+    } catch (e) {
+        console.error("Filter error:", e);
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" class="text-danger text-center">
+                    ❌ Failed to fetch results
+                </td>
+            </tr>
+        `;
+    }
+}
 </script>
 
 </body>
