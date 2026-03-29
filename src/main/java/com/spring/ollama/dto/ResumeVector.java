@@ -1,21 +1,23 @@
 package com.spring.ollama.dto;
-import java.util.List;
+import lombok.Data;
 
+import java.util.List;
+@Data
 public class ResumeVector {
     private String fileName;
     private String content;          // full resume text
     private List<float[]> embedding;
+    private Long id;
 
-    public ResumeVector(String fileName, String content, List<float[]> embedding) {
+    public ResumeVector(String fileName, String content,
+                        List<float[]> embedding,
+                        Long id) {
         this.fileName = fileName;
         this.content = content;
         this.embedding = embedding;
+        this.id=id;
+
     }
-
-    public String getFileName() { return fileName; }
-    public String getContent() { return content; }
-    public List<float[]> getEmbedding() { return embedding; }
-
     /**
      * Returns a short snippet of the resume for LLM scoring
      */

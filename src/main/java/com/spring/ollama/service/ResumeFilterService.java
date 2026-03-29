@@ -1,93 +1,73 @@
 package com.spring.ollama.service;
 
 import com.spring.ollama.dto.CandidateScore;
-import com.spring.ollama.dto.ResumeVector;
-import com.spring.ollama.utils.SimilarityUtil;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 public class ResumeFilterService {
-
+    private final VectorStore vectorStore;
     private final ChatClient chatClient;
 
-    public ResumeFilterService(ChatClient chatClient) {
+    public ResumeFilterService(VectorStore vectorStore, ChatClient chatClient) {
+        this.vectorStore = vectorStore;
         this.chatClient = chatClient;
     }
 
-    /**
-     * Filter and score resumes given a job description.
-     */
-    public List<CandidateScore> filterResumes(String jobDescription, List<ResumeVector> resumes) {
+    public List<CandidateScore> filterResumes(String jobDescription) {
 
-        if (jobDescription == null || jobDescription.isBlank() || resumes.isEmpty()) {
+        if (jobDescription == null || jobDescription.isBlank()) {
             return Collections.emptyList();
         }
 
+        // 🔥 1️⃣ Get top matches from Chroma
+        List<Document> docs = vectorStore.similaritySearch(jobDescription);
+
         List<CandidateScore> resultList = new ArrayList<>();
-        final int TOP_K = 5;
-        final float MIN_SCORE_THRESHOLD = 0.3f;
 
-        for (ResumeVector vector : resumes) {
+        for (Document doc : docs) {
 
-            // 1️⃣ Cosine similarity scoring
-            PriorityQueue<Float> topScores = new PriorityQueue<>(TOP_K);
-            for (float[] jdVec : vector.getEmbedding()) {
-                for (float[] resumeVec : vector.getEmbedding()) {
-                    float score = SimilarityUtil.cosineSimilarity(jdVec, resumeVec);
-                    if (!Float.isNaN(score) && score > MIN_SCORE_THRESHOLD) {
-                        if (topScores.size() < TOP_K) topScores.offer(score);
-                        else if (score > topScores.peek()) {
-                            topScores.poll();
-                            topScores.offer(score);
-                        }
-                    }
-                }
-            }
+            String fileName = (String) doc.getMetadata().get("fileName");
+            String resumeId = (String) doc.getMetadata().get("resumeId");
+            String content = doc.getText();
 
-            if (topScores.isEmpty()) continue;
-
-            float sum = 0f;
-            for (float s : topScores) sum += s;
-            float avgScore = sum / topScores.size();
-            double normalized = (avgScore + 1) / 2;
-            double boosted = Math.pow(normalized, 0.5); // embeddings score fallback
-
-            // 2️⃣ Ollama LLM scoring with fallback
-            double finalScore = boosted; // default fallback
+            // 🔥 2️⃣ LLM scoring (keep your logic)
+            double finalScore;
             try {
                 String prompt = """
                         You are an HR assistant.
                         Rate this resume against the following job description on a scale of 0-100:
-
+                        
                         Job Description: %s
-
+                        
                         Resume: %s
-
+                        
                         Return only the numeric score.
-                        """.formatted(jobDescription, vector.getTextSnippet());
+                        """.formatted(jobDescription, content);
 
                 String response = chatClient.prompt(prompt).call().content();
+                double llmScore = parseScore(response) / 100.0;
 
-                double llmScore = parseScore(response) / 100.0; // normalize 0-1
-
-                // Combine LLM + embeddings
-                finalScore = 0.6 * llmScore + 0.4 * boosted;
+                finalScore = llmScore;
 
             } catch (Exception e) {
-                // fallback to embeddings score only
-                finalScore = boosted;
+                // fallback score if LLM fails
+                finalScore = 0.5;
             }
 
-            // clamp to [0,1]
+            // clamp
             finalScore = Math.max(0, Math.min(1, finalScore));
-
-            resultList.add(new CandidateScore(vector.getFileName(), finalScore));
+            String downloadUrl = "/download/" + resumeId;
+            resultList.add(new CandidateScore(fileName, finalScore, downloadUrl));
         }
-
-        // 3️⃣ Sort top 5 candidates
+        // 🔥 3️⃣ Sort & return top 5
         return resultList.stream()
                 .sorted(Comparator.comparingDouble(CandidateScore::getScore).reversed())
                 .limit(5)

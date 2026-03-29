@@ -53,7 +53,12 @@
         <div class="card p-3 mt-3">
             <h5>Job Description</h5>
             <textarea id="jd" class="form-control" rows="5"></textarea>
-            <button class="btn btn-success mt-2" onclick="filterCandidates()">Find Candidates</button>
+
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <label for="topN" class="mb-0">Top N Candidates:</label>
+                <input type="number" id="topN" value="5" min="1" max="50" class="form-control" style="width:80px;">
+                <button class="btn btn-success" onclick="filterCandidates()">Find Candidates</button>
+            </div>
         </div>
 
         <!-- ✅ Results Table -->
@@ -66,6 +71,7 @@
                     <th>#</th>
                     <th>File Name</th>
                     <th>Score</th>
+                    <th>Download</th>
                 </tr>
                 </thead>
                 <tbody id="resultsBody">
@@ -168,109 +174,96 @@
         }
     }
 
-    /* ✅ filter + render table */
+    /* ✅ filter + render table with download option + dynamic top N */
     async function filterCandidates() {
-    const jd = document.getElementById("jd").value;
+        const jd = document.getElementById("jd").value;
+        const topN = parseInt(document.getElementById("topN").value) || 5;
 
-    if (!jd.trim()) {
-        alert("Enter job description");
-        return;
-    }
-
-    const tbody = document.getElementById("resultsBody");
-
-    // ✅ Loader row
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="3" class="text-center">
-                🔄 Processing... please wait
-            </td>
-        </tr>
-    `;
-
-    try {
-        const res = await fetch("/filter", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + localStorage.getItem("token")
-            },
-            body: JSON.stringify({ jd })
-        });
-
-        // ✅ Handle auth issue
-        if (res.status === 401) {
-            localStorage.removeItem("token");
-            window.location.href = "/login";
+        if (!jd.trim()) {
+            alert("Enter job description");
             return;
         }
 
-        // ✅ Handle non-JSON (debug safety)
-        const text = await res.text();
-        let data;
-
-        try {
-            data = JSON.parse(text);
-        } catch (err) {
-            console.error("Invalid JSON response:", text);
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="3" class="text-danger text-center">
-                        ❌ Server returned invalid response
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        // ✅ Validate response structure
-        if (!data || !data.candidates || data.candidates.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="3" class="text-center">
-                        No candidates found
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        // ✅ Clear table
-        tbody.innerHTML = "";
-
-        let index = 1;
-
-        data.candidates.forEach(c => {
-
-            // ✅ Handle NaN or invalid score
-            let score = isNaN(c.score) ? 0 : c.score;
-
-            let color = score > 0.8 ? "table-success" :
-                        score > 0.6 ? "table-warning" : "table-danger";
-
-            const row = `
-                <tr class="${color}">
-                    <td>${index++}</td>
-                    <td>${c.fileName || "N/A"}</td>
-                    <td>${(score * 100).toFixed(2)}%</td>
-                </tr>
-            `;
-
-            tbody.innerHTML += row;
-        });
-
-    } catch (e) {
-        console.error("Filter error:", e);
+        const tbody = document.getElementById("resultsBody");
 
         tbody.innerHTML = `
             <tr>
-                <td colspan="3" class="text-danger text-center">
-                    ❌ Failed to fetch results
-                </td>
+                <td colspan="4" class="text-center">🔄 Processing... please wait</td>
             </tr>
         `;
+
+        try {
+            const res = await fetch("/filter", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + localStorage.getItem("token")
+                },
+                body: JSON.stringify({ jd, topN })
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+                return;
+            }
+
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Invalid JSON response:", text);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-danger text-center">❌ Server returned invalid response</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            if (!data || !data.candidates || data.candidates.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center">No candidates found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = "";
+            let index = 1;
+
+            data.candidates.forEach(c => {
+                const score = isNaN(c.score) ? 0 : c.score;
+                const color = score > 0.8 ? "table-success" :
+                              score > 0.6 ? "table-warning" : "table-danger";
+
+                const downloadBtn = c.downloadUrl
+                    ? `<a href="${c.downloadUrl}" class="btn btn-sm btn-primary" target="_blank">Download</a>`
+                    : "N/A";
+
+                const row = `
+                    <tr class="${color}">
+                        <td>${index++}</td>
+                        <td>${c.fileName || "N/A"}</td>
+                        <td>${(score * 100).toFixed(2)}%</td>
+                        <td>${downloadBtn}</td>
+                    </tr>
+                `;
+
+                tbody.innerHTML += row;
+            });
+
+        } catch (e) {
+            console.error("Filter error:", e);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-danger text-center">❌ Failed to fetch results</td>
+                </tr>
+            `;
+        }
     }
-}
 </script>
 
 </body>

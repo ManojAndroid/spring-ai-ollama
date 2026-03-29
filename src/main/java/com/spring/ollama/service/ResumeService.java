@@ -1,14 +1,23 @@
 package com.spring.ollama.service;
 
+import com.spring.ollama.entity.ResumeEntity;
+import com.spring.ollama.repository.ResumeRepository;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.*;
 
 @Service
 public class ResumeService {
 
     private final ChatClient chatClient;
+
+    @Autowired
+    private ResumeRepository repository;
 
     private final Map<String, String> resumes = new HashMap<>();
 
@@ -62,5 +71,30 @@ public class ResumeService {
             }
         }
         return map;
+    }
+
+    // Save resume in DB
+    @Async
+    public Long save(MultipartFile file) throws IOException {
+        ResumeEntity resume = new ResumeEntity();
+        resume.setFileName(file.getOriginalFilename());
+        resume.setContent(file.getBytes());
+        resume.setContentType(file.getContentType());
+        return repository.save(resume).getId();
+    }
+
+    // Get all resumes
+    public List<ResumeEntity> getAll() {
+        return repository.findAll();
+    }
+
+    // Get resume by filename
+    public ResumeEntity getByFileName(String fileName) {
+        return repository.findByFileName(fileName);
+    }
+
+
+    public ResumeEntity getById(Long id) {
+        return repository.findById(id).get();
     }
 }
