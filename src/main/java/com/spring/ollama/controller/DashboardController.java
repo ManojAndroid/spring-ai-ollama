@@ -6,6 +6,7 @@ import com.spring.ollama.dto.ResumeVector;
 import com.spring.ollama.service.EmbeddingService;
 import com.spring.ollama.service.InMemoryVectorStore;
 import com.spring.ollama.service.ResumeFilterService;
+import com.spring.ollama.service.ResumeService;
 import com.spring.ollama.utils.SimilarityUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,47 +25,20 @@ public class DashboardController {
     private final EmbeddingService embeddingService;
     private final InMemoryVectorStore vectorStore;
     private final ResumeFilterService filterResumes;
+    private final ResumeService resumeService;
 
     public DashboardController(EmbeddingService embeddingService,
                                InMemoryVectorStore vectorStore,
-                               ResumeFilterService filterResumes) {
+                               ResumeFilterService filterResumes, ResumeService resumeService) {
         this.embeddingService = embeddingService;
         this.vectorStore = vectorStore;
-        this.filterResumes=filterResumes;
+        this.filterResumes = filterResumes;
+        this.resumeService = resumeService;
     }
-
-  /*  // ✅ Dashboard Page
-    @GetMapping("/")
-    public String dashboard() {
-        return "dashboard";
-    }*/
-
     // ✅ Upload Resumes
     @PostMapping("/upload")
     public String upload(@RequestParam("files") List<MultipartFile> files) {
-
-        for (MultipartFile file : files) {
-
-            try (BufferedReader reader =
-                         new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-
-                String text = reader.lines().collect(Collectors.joining(" "));
-
-                List<float []> embedding = embeddingService.generateEmbeddings(text);
-
-                ResumeVector vector = new ResumeVector(
-                        file.getOriginalFilename(),
-                        text,
-                        embedding
-                );
-
-                vectorStore.save(vector);
-
-            } catch (Exception e) {
-                throw new RuntimeException("Error processing file", e);
-            }
-        }
-
+        resumeService.uploadResumes(files);
         return "redirect:/";
     }
 
@@ -72,12 +46,7 @@ public class DashboardController {
     @PostMapping("/filter")
     @ResponseBody
     public FilterResponse filter(@RequestBody Map<String, String> request) {
-
-        String jd = request.get("jd");
-        List<ResumeVector> allResumes = vectorStore.getAll();
-
-        List<CandidateScore> topCandidates = filterResumes.filterResumes(jd, allResumes);
-
+        List<CandidateScore> topCandidates = filterResumes.filterResumes(request.get("jd"));
         return new FilterResponse(topCandidates);
     }
 }

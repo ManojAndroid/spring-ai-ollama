@@ -1,2 +1,2 @@
 package com.spring.ollama.dto;
-public record ChatRequest(String message) {}
+public record ChatRequest(String messager) {}
